@@ -607,7 +607,7 @@ trait SQLSyntaxSupportFeature { self: SQLInterpolationFeature =>
 
     private[this] lazy val cachedNamedColumns = new scala.collection.concurrent.TrieMap[String, SQLSyntax]
 
-    def namedColumn(name: String): SQLSyntax = cachedNamedColumns.getOrElse(name, {
+    def namedColumn(name: String): SQLSyntax = cachedNamedColumns.getOrElseUpdate(name, {
       namedColumns.find(_.value.equalsIgnoreCase(name)).getOrElse {
         throw new InvalidColumnNameException(ErrorMessage.INVALID_COLUMN_NAME +
           s" (name: ${name}, registered names: ${namedColumns.map(_.value).mkString(",")})")
@@ -656,7 +656,7 @@ trait SQLSyntaxSupportFeature { self: SQLInterpolationFeature =>
       def include(syntaxProviders: QuerySQLSyntaxProvider[_, _]*): SubQuerySQLSyntaxProvider = {
         SubQuery.syntax(
           name,
-          delimiterForResultName.getOrElse(syntaxProviders.head.resultName.delimiterForResultName),
+          delimiterForResultName.orElse(syntaxProviders.headOption.map(_.resultName.delimiterForResultName)).getOrElse("_on_"),
           syntaxProviders.map(_.resultName): _*
         )
       }
@@ -681,7 +681,7 @@ trait SQLSyntaxSupportFeature { self: SQLInterpolationFeature =>
     lazy val * : SQLSyntax = SQLSyntax(resultNames.map { resultName =>
       resultName.namedColumns.map { c =>
         s"${aliasName}.${c.value}"
-      }
+      }.mkString(", ")
     }.mkString(", "))
 
     val asterisk: SQLSyntax = SQLSyntax(aliasName + ".*")
@@ -717,7 +717,7 @@ trait SQLSyntaxSupportFeature { self: SQLInterpolationFeature =>
 
     private[this] lazy val cachedColumns = new scala.collection.concurrent.TrieMap[String, SQLSyntax]
 
-    def column(name: String): SQLSyntax = cachedColumns.getOrElse(name, {
+    def column(name: String): SQLSyntax = cachedColumns.getOrElseUpdate(name, {
       resultNames.find(rn => rn.namedColumns.exists(_.value.equalsIgnoreCase(name))).map { rn =>
         SQLSyntax(s"${aliasName}.${rn.column(name)} as ${rn.column(name)}${delimiterForResultName}${aliasName}")
       }.getOrElse {
@@ -746,7 +746,7 @@ trait SQLSyntaxSupportFeature { self: SQLInterpolationFeature =>
 
     private[this] lazy val cachedColumns = new scala.collection.concurrent.TrieMap[String, SQLSyntax]
 
-    def column(name: String): SQLSyntax = cachedColumns.getOrElse(name, {
+    def column(name: String): SQLSyntax = cachedColumns.getOrElseUpdate(name, {
       columns.find(_.value.equalsIgnoreCase(name)).getOrElse {
         throw notFoundInColumns(aliasName, name)
       }
